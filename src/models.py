@@ -8,11 +8,10 @@ def_device = torch.device("cpu")
 
 class Model(object):
     """Base class for models."""
-    def __init__(self, gamma, optim, loss_function, device=def_device, optim_param=[]):
+    def __init__(self, gamma, optim, loss_function, device=def_device):
         self.loss_function = loss_function
         self.optim = optim
         self.gamma = gamma
-        self.optim_param = optim_param
         self.device = device
 
     def __call__(self, state):
@@ -27,13 +26,13 @@ class Model(object):
 
 class DQN(Model):
     """docstring for DQN."""
-    def __init__(self, net_structure, gamma, optim, loss_function, tau=1, device=def_device, optim_param=[]):
-        super(DQN, self).__init__(gamma, optim, loss_function, device, optim_param)
+    def __init__(self, net_structure, gamma, optim, loss_function, tau=1, device=def_device):
+        super(DQN, self).__init__(gamma, optim, loss_function, device)
 
         self.predict = util.model_from_structure(net_structure).to(self.device)
         self.target = util.model_from_structure(net_structure).to(self.device)
         self.tau = tau
-        self.optimizer = self.optim(self.predict.parameters(), *optim_param)
+        self.optimizer = self.optim(self.predict.parameters())
 
         self.update_counter = 0
 

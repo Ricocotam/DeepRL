@@ -11,7 +11,7 @@ def_device = torch.device("cpu")
 
 class Agent(object):
     """A base class for deep RL agents."""
-    def __init__(self, model, policy_learning, policy_playing=policies.Greedy(), buffer=SoloBuffer(), learn_every=1, update_every=1,):
+    def __init__(self, model, policy_learning, policy_playing=policies.Greedy(), buffer=SoloBuffer(), learn_every=1, update_every=1):
         """Initialize an agent.
 
         Parameters
