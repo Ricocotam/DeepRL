@@ -113,3 +113,50 @@ Currently implemented buffers :
 - CompleteBuffer : Just like QBuffer but with more data : state, action, reward, next_state, next_action, done
 
 #### Agent
+##### Attributes
+- model : Model
+  The model the agent will use to predict actions
+- buffer : Buffer, optionnal
+  A replay buffer, default is SoloBuffe
+- learning_strategy : Policy
+  The policy to follow during training
+- playing_strategy : Policy
+  The policy to follow when not training
+- update_every : int
+  Update the model every "update_every" call on step.
+- learn_every : int
+  Learn the model every "learn_every" call on step.
+- learning : bool
+  True if the agent is learning. Changing it changed the policy used.
+
+#### Methods
+- \__init__
+  - model : Model
+    The model the agent will use to predict actions
+  - learning_strategy : Policy
+    The policy to follow during training
+  - policy_playing : Policy, optionnal
+    The policy to follow when not training. Default Greedy
+  - buffer : Buffer, optionnal
+    A replay buffer, default is SoloBuffer
+  - update_every : int, optionnal
+    Update the model every "update_every" call on step. Default 1
+  - learn_every : int, optionnal
+    Learn the model every "learn_every" call on step. Default 1
+- act
+  Get the action from the state.
+  - Parameters
+    - state, custom
+      The state from which the agent have to take an action.
+  - Returns
+    The action the agent picked.
+- step
+  Do a step for the agent. Memorize and learn.
+  Append the given experience to the buffer and sample from the buffer so it can learn and update if needed (@see learn_every and update_every)
+  - Parameters
+    - experience : custom
+      The last experience you had. It is added to the buffer
+- learning
+  Change learning attributes to True. It enables the training policy
+- playing
+  Change learning attribute to False. It enables the playing strategy
