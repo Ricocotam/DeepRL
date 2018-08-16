@@ -2,6 +2,7 @@ import gym
 import util
 import torch
 import random
+import functools
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
@@ -9,8 +10,10 @@ import matplotlib.pyplot as plt
 
 from models import Model
 from policies import EpsDecay, Greedy
-from deep_agent import Agent, QBuffer
+from deep_agent import Agent
+from buffer import QBuffer
 
+def_device = torch.device("cpu")
 
 class DQN(Model):
     """docstring for DQN."""
@@ -80,7 +83,9 @@ memory_size = int(1e6)
 average_goal = 220
 goal_size = 100
 
-model = DQN(net_structure=(state_size, 128, 128, action_size), gamma=gamma, optim=optim.Adam, optim_param=[alpha],
+optimiser = functools.partial(optim.Adam, lr=alpha)
+
+model = DQN(net_structure=(state_size, 128, 128, action_size), gamma=gamma, optim=optimiser,
             loss_function=nn.MSELoss(), tau=1, device=device)
 
 buffer = QBuffer(memory_size, batch_size, device)

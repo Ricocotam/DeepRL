@@ -2,7 +2,7 @@ import argparse
 import gym
 import numpy as np
 from itertools import count
-from collections import namedtuple
+from collections import namedtuple, deque
 
 import torch
 import torch.nn as nn
@@ -14,7 +14,7 @@ from torch.distributions import Categorical
 parser = argparse.ArgumentParser(description='PyTorch actor-critic example')
 parser.add_argument('--gamma', type=float, default=0.99, metavar='G',
                     help='discount factor (default: 0.99)')
-parser.add_argument('--seed', type=int, default=543, metavar='N',
+parser.add_argument('--seed', type=int, default=15184, metavar='N',
                     help='random seed (default: 1)')
 parser.add_argument('--render', action='store_true',
                     help='render the environment')
@@ -34,9 +34,9 @@ SavedAction = namedtuple('SavedAction', ['log_prob', 'value'])
 class Policy(nn.Module):
     def __init__(self):
         super(Policy, self).__init__()
-        self.affine1 = nn.Linear(env.observation_space.shape[0], 128)
-        self.action_head = nn.Linear(128, env.action_space.n)
-        self.value_head = nn.Linear(128, 1)
+        self.affine1 = nn.Linear(env.observation_space.shape[0], 256)
+        self.action_head = nn.Linear(256, env.action_space.n)
+        self.value_head = nn.Linear(256, 1)
 
         self.saved_actions = []
         self.rewards = []
@@ -86,12 +86,11 @@ def finish_episode():
 
 
 def main():
+    scores_window = deque(maxlen=100)
     running_reward = 10
     for i_episode in count(1):
         state = env.reset()
         for t in range(10000):  # Don't infinite loop while learning
-            if i_episode > 150:
-                env.render()
             action = select_action(state)
             state, reward, done, _ = env.step(action)
             if args.render:
@@ -102,13 +101,14 @@ def main():
 
         running_reward = running_reward * 0.99 + t * 0.01
         rew = sum(model.rewards)
+        scores_window.append(rew)
         finish_episode()
-        if i_episode % args.log_interval == 0:
-            print('Episode {}\tLast length: {:5d}\tAverage length: {:.2f}'.format(
-                i_episode, t, rew))
-        if rew > env.spec.reward_threshold:
-            print("Solved! Running reward is now {} and "
-                  "the last episode runs to {} time steps!".format(running_reward, t))
+
+        print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)), end="")
+        if i_episode % 100 == 0:
+            print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)))
+        if np.mean(scores_window)>= 200:
+            print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i-goal_size, np.mean(scores_window)))
             break
 
 
