@@ -15,16 +15,16 @@ env = gym.make("LunarLander-v2")
 env.seed(15184)
 torch.manual_seed(15184)
 
-
+eps = np.finfo(np.float32).eps.item()
 class Policy(nn.Module):
     """docstring for Policy."""
     def __init__(self):
         super(Policy, self).__init__()
-        self.net = nn.Sequential(nn.Linear(env.observation_space.shape[0], 128),
+        self.net = nn.Sequential(nn.Linear(env.observation_space.shape[0], 256),
                                  nn.ReLU())
-        self.policy = nn.Sequential(nn.Linear(128, env.action_space.n),
+        self.policy = nn.Sequential(nn.Linear(256, env.action_space.n),
                                     nn.Softmax(-1))
-        self.critic = nn.Linear(128, 1)
+        self.critic = nn.Linear(256, 1)
 
     def forward(self, x):
         temp = self.net(x)
@@ -38,11 +38,11 @@ def play_episode(env, model, maxlen=10000):
 
     state = env.reset()
     for i in range(maxlen):
-        action_prob, value = model(torch.tensor(state).float())
+        state = torch.from_numpy(state).float()
+        action_prob, value = model(state)
         sampler = Categorical(action_prob)
         action = sampler.sample()
         state, reward, done, _ = env.step(action.item())
-
         log_probs.append(sampler.log_prob(action))
         values.append(value)
         rewards.append(reward)
@@ -56,18 +56,17 @@ def learn(opti, log_probs, values, rewards):
     discounted_rewards = []
     R = 0
     for r in rewards[::-1]:
-        R = r + gamma * R
+        R = r + 0.99 * R
         discounted_rewards.insert(0, R)
     discounted_rewards = torch.tensor(discounted_rewards)
-    discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (discounted_rewards.std() + 1e-7)
-
+    discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (discounted_rewards.std() + eps)
     policy_losses = []
     critic_losses = []
     for value, log_prob, reward in zip(values, log_probs, discounted_rewards):
-        val = r - value.item()
+        val = reward - value.item()
         current_loss = -log_prob * val
         policy_losses.append(current_loss)
-        critic_losses.append(F.smooth_l1_loss(value, reward))
+        critic_losses.append(F.smooth_l1_loss(value, torch.tensor([reward])))
 
     policy_loss = torch.stack(policy_losses).sum()
     critic_loss = torch.stack(critic_losses).sum()
@@ -87,7 +86,7 @@ average_goal = 200
 
 scores_window = deque(maxlen=goal_size)
 scores = []
-for i in range(nb_epi):
+for i in range(1, nb_epi):
     log_probs, values, rewards = play_episode(env, model)
     learn(opti, log_probs, values, rewards)
     scores.append(sum(rewards))
