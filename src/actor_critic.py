@@ -6,38 +6,40 @@ import torch.nn.functional as F
 import random
 import numpy as np
 import gym
+import matplotlib.pyplot as plt
 from collections import deque
 
 from torch.distributions import Categorical
 
 env = gym.make("LunarLander-v2")
 
-env.seed(15184)
-torch.manual_seed(15184)
-
 eps = np.finfo(np.float32).eps.item()
 class Policy(nn.Module):
     """docstring for Policy."""
     def __init__(self):
         super(Policy, self).__init__()
-        self.net = nn.Sequential(nn.Linear(env.observation_space.shape[0], 256),
+        self.net = nn.Sequential(nn.Linear(env.observation_space.shape[0], 64),
+                                 nn.ReLU(),
+                                 nn.Linear(64, 64),
                                  nn.ReLU())
-        self.policy = nn.Sequential(nn.Linear(256, env.action_space.n),
+        self.policy = nn.Sequential(nn.Linear(64, env.action_space.n),
                                     nn.Softmax(-1))
-        self.critic = nn.Linear(256, 1)
+        self.critic = nn.Linear(64, 1)
 
     def forward(self, x):
         temp = self.net(x)
         return self.policy(temp), self.critic(temp)
 
 
-def play_episode(env, model, maxlen=10000):
+def play_episode(env, model, maxlen=10000, render=False):
     log_probs = []
     rewards = []
     values = []
 
     state = env.reset()
     for i in range(maxlen):
+        if render:
+            env.render()
         state = torch.from_numpy(state).float()
         action_prob, value = model(state)
         sampler = Categorical(action_prob)
@@ -100,3 +102,7 @@ for i in range(1, nb_epi):
         break
 plt.plot(scores)
 plt.show()
+
+for i in range(10):
+    play_episode(env, model, render=True)
+env.close()
