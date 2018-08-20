@@ -11,20 +11,19 @@ from collections import deque
 
 from torch.distributions import Categorical
 
-env = gym.make("LunarLander-v2")
+env = gym.make("CartPole-v0")
+# env = gym.make("LunarLander-v2")
 
 eps = np.finfo(np.float32).eps.item()
 class Policy(nn.Module):
     """docstring for Policy."""
     def __init__(self):
         super(Policy, self).__init__()
-        self.net = nn.Sequential(nn.Linear(env.observation_space.shape[0], 64),
-                                 nn.ReLU(),
-                                 nn.Linear(64, 64),
+        self.net = nn.Sequential(nn.Linear(env.observation_space.shape[0], 128), # Met 256 ou plus pour LunarLander
                                  nn.ReLU())
-        self.policy = nn.Sequential(nn.Linear(64, env.action_space.n),
+        self.policy = nn.Sequential(nn.Linear(128, env.action_space.n),  # 256
                                     nn.Softmax(-1))
-        self.critic = nn.Linear(64, 1)
+        self.critic = nn.Linear(128, 1)  # 256
 
     def forward(self, x):
         temp = self.net(x)
@@ -79,7 +78,7 @@ def learn(opti, log_probs, values, rewards):
 
 
 model = Policy()
-opti = optim.Adam(model.parameters(), lr=3e-2)
+opti = optim.Adam(model.parameters(), lr=5e-3)
 
 gamma = 0.99
 nb_epi = 9999999
