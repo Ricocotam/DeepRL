@@ -8,23 +8,28 @@ import numpy as np
 import gym
 import matplotlib.pyplot as plt
 from collections import deque
+import random
 
 from torch.distributions import Categorical
 
 env = gym.make("LunarLander-v2")
-
 eps = np.finfo(np.float32).eps.item()
+
+# seed = 1155874
+# np.random.seed(seed)
+# random.seed(seed)
+# torch.manual_seed(seed)
+# env.seed(seed)
+
 class Policy(nn.Module):
     """docstring for Policy."""
     def __init__(self):
         super(Policy, self).__init__()
-        self.net = nn.Sequential(nn.Linear(env.observation_space.shape[0], 64),
-                                 nn.ReLU(),
-                                 nn.Linear(64, 64),
+        self.net = nn.Sequential(nn.Linear(env.observation_space.shape[0], 128),
                                  nn.ReLU())
-        self.policy = nn.Sequential(nn.Linear(64, env.action_space.n),
+        self.policy = nn.Sequential(nn.Linear(128, env.action_space.n),
                                     nn.Softmax(-1))
-        self.critic = nn.Linear(64, 1)
+        self.critic = nn.Linear(128, 1)
 
     def forward(self, x):
         temp = self.net(x)
