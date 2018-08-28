@@ -13,6 +13,7 @@ def learn(env, goal_size, average_goal, agent, max_step, nb_epi_max, gamma, lear
         for _ in range(max_step):
             action = agent.act(state)
             next_state, reward, done, info = env.step(action)
+            reward = reward - 1
             agent.step((state, action, reward, next_state, done))
             score += reward
             state = next_state
@@ -28,9 +29,12 @@ def learn(env, goal_size, average_goal, agent, max_step, nb_epi_max, gamma, lear
             print('\rEpisode {}\tAverage Score: {:.2f}'.format(i, np.mean(scores_window)))
         if np.mean(scores_window)>= average_goal:
             print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i-goal_size, np.mean(scores_window)))
-            torch.save(agent.model.predict.state_dict(), 'checkpoint.pth')
             break
     return scores
+
+
+def per_learn(env, goal_size, average_goal, agent, max_step, nb_epi_max, gamma, learning_policy):
+    pass
 
 
 def model_from_structure(net_structure, activation=nn.ReLU()):

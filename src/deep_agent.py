@@ -72,3 +72,24 @@ class Agent(object):
     def playing(self):
         """Set playing policy."""
         self.learning = False
+
+
+class PERAgent(Agent):
+    """docstring for PERAgent."""
+    def __init__(self, model, policy_learning, policy_playing=policies.Greedy(), buffer=bf.SoloBuffer, learn_every=1, update_every=1):
+        super(PERAgent, self).__init__(model, policy_learning, policy_playing, buffer, learn_every, update_every)
+
+    def step(self, experience):
+        """Do a step for the agent. Memorize and learn if needed."""
+        self.buffer.add(experience)
+        self.update_counter = (self.update_counter + 1) % self.update_every
+        self.learn_counter = (self.learn_counter + 1) % self.learn_every
+        if self.buffer.can_sample():
+            if self.learn_counter == 0:
+                sample, indices, weights = self.buffer.sample()
+                diff = self.model.learn([sample, weights])
+                self.buffer.update(indices, diff)
+
+
+            if self.update_counter == 0:
+                self.model.update()

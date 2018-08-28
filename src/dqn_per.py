@@ -10,63 +10,52 @@ import matplotlib.pyplot as plt
 
 from models import Model
 from policies import EpsDecay, Greedy
-from deep_agent import Agent
-from buffer import QBuffer
+from deep_agent import PERAgent
+from buffer import PrioritizedBuffer
 
 def_device = torch.device("cpu")
 
-class DDQN(Model):
+class PER_DQN(Model):
     """docstring for DQN."""
     def __init__(self, net_structure, gamma, optim, loss_function, tau=1, device=def_device):
-        super(DDQN, self).__init__(gamma, optim, loss_function, device)
+        super(PER_DQN, self).__init__(gamma, optim, loss_function, device)
 
-        self.predict = [util.model_from_structure(net_structure).to(self.device), util.model_from_structure(net_structure).to(self.device)]
-        self.target = [util.model_from_structure(net_structure).to(self.device), util.model_from_structure(net_structure).to(self.device)]
+        self.predict = util.model_from_structure(net_structure).to(self.device)
+        self.target = util.model_from_structure(net_structure).to(self.device)
         self.tau = tau
-        self.optimizer = [self.optim(self.predict[0].parameters()), self.optim(self.predict[1].parameters())]
+        self.optimizer = self.optim(self.predict.parameters())
 
         self.update_counter = 0
 
     def __call__(self, state):
         state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
-        self.predict[0].eval()
-        self.predict[1].eval()
+        self.predict.eval()
         with torch.no_grad():
-            action_values = self.predict[0](state) + self.predict[1](state)
-        self.predict[0].train()
-        self.predict[1].train()
+            action_values = self.predict(state)
+        self.predict.train()
         return action_values
 
     def learn(self, sample):
+        sample, weights = sample
         states, actions, rewards, next_states, dones = sample
-
-        learner = 0 if random.random() < 0.5 else 1
-
-        learner_actions = self.target[learner](next_states).argmax(1).unsqueeze(1)
-        with torch.no_grad():
-            target_values = self.target[learner-1](next_states).gather(1, learner_actions)
-
+        target_values = self.target(next_states).max(1)[0].detach().unsqueeze(1)
         expected_values = rewards + (self.gamma * target_values * (1-dones))
 
-        actual_values = self.predict[learner](states).gather(1, actions)
-
-        loss = self.loss_function(actual_values, expected_values)
-        self.optimizer[learner].zero_grad()
+        actual_values = self.predict(states).gather(1, actions)
+        weights = weights.detach()
+        loss = self.loss_function(weights*actual_values, weights*expected_values)
+        self.optimizer.zero_grad()
         loss.backward()
-        for param in self.predict[learner].parameters():
+        for param in self.predict.parameters():
             param.grad.data.clamp_(-1, 1)
-        self.optimizer[learner].step()
+        self.optimizer.step()
+        return (expected_values - actual_values).detach().squeeze().abs()
 
     def update(self):
         if self.update_counter > 0:
-            for i in range(2):
-                for target_param, predict_param in zip(self.target[i].parameters(), self.predict[i].parameters()):
-                    target_param.data.copy_(self.tau*predict_param.data + (1.0-self.tau)*target_param.data)
+            for target_param, predict_param in zip(self.target.parameters(), self.predict.parameters()):
+                target_param.data.copy_(self.tau*predict_param.data + (1.0-self.tau)*target_param.data)
         self.update_counter += 1
-
-    def save(self, filename):
-        torch.save(self.predict[0].state_dict(), filename + "0.pth")
-        torch.save(self.predict[1].state_dict(), filename + "1.pth")
 
 
 env = gym.make("LunarLander-v2")
@@ -90,7 +79,7 @@ eps_start = 1
 eps_decay = 0.995
 eps_min = 0.01
 
-batch_size = 64
+batch_size = 32
 memory_size = int(1e6)
 
 average_goal = 200
@@ -98,18 +87,16 @@ goal_size = 100
 
 optimiser = functools.partial(optim.Adam, lr=alpha)
 
-model = DDQN(net_structure=(state_size, 128, 128, action_size), gamma=gamma, optim=optimiser,
+model = PER_DQN(net_structure=(state_size, 128, 128, action_size), gamma=gamma, optim=optimiser,
             loss_function=nn.MSELoss(), tau=1, device=device)
 
-buffer = QBuffer(memory_size, batch_size, device)
+buffer = PrioritizedBuffer(memory_size, batch_size, device)
 learning_policy = EpsDecay(eps_start, eps_min, eps_decay, env.action_space.n)
 playing_policy = Greedy()
-agent = Agent(model=model, buffer=buffer, learn_every=4, update_every=4, policy_learning=learning_policy,
+agent = PERAgent(model=model, buffer=buffer, learn_every=4, update_every=4, policy_learning=learning_policy,
               policy_playing=playing_policy)
 
 scores = util.learn(env, goal_size, average_goal, agent, max_step, nb_epi_max, gamma, learning_policy)
-
-model.save("dqn")
 
 print(len(buffer))
 fig = plt.figure()

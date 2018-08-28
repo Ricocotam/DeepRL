@@ -22,3 +22,6 @@ class Model(object):
 
     def update(self):
         pass
+
+    def save(self, filename):
+        pass

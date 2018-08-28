@@ -10,15 +10,16 @@ import matplotlib.pyplot as plt
 
 from models import Model
 from policies import EpsDecay, Greedy
-from deep_agent import Agent
-from buffer import QBuffer
+from deep_agent import PERAgent
+from buffer import PrioritizedBuffer
+
 
 def_device = torch.device("cpu")
 
-class DDQN(Model):
+class PER_DDQN(Model):
     """docstring for DQN."""
     def __init__(self, net_structure, gamma, optim, loss_function, tau=1, device=def_device):
-        super(DDQN, self).__init__(gamma, optim, loss_function, device)
+        super(PER_DDQN, self).__init__(gamma, optim, loss_function, device)
 
         self.predict = [util.model_from_structure(net_structure).to(self.device), util.model_from_structure(net_structure).to(self.device)]
         self.target = [util.model_from_structure(net_structure).to(self.device), util.model_from_structure(net_structure).to(self.device)]
@@ -38,6 +39,7 @@ class DDQN(Model):
         return action_values
 
     def learn(self, sample):
+        sample, weights = sample
         states, actions, rewards, next_states, dones = sample
 
         learner = 0 if random.random() < 0.5 else 1
@@ -56,6 +58,7 @@ class DDQN(Model):
         for param in self.predict[learner].parameters():
             param.grad.data.clamp_(-1, 1)
         self.optimizer[learner].step()
+        return (expected_values - actual_values).detach().squeeze().abs()
 
     def update(self):
         if self.update_counter > 0:
@@ -98,13 +101,13 @@ goal_size = 100
 
 optimiser = functools.partial(optim.Adam, lr=alpha)
 
-model = DDQN(net_structure=(state_size, 128, 128, action_size), gamma=gamma, optim=optimiser,
+model = PER_DDQN(net_structure=(state_size, 128, 128, action_size), gamma=gamma, optim=optimiser,
             loss_function=nn.MSELoss(), tau=1, device=device)
 
-buffer = QBuffer(memory_size, batch_size, device)
+buffer = PrioritizedBuffer(memory_size, batch_size, device)
 learning_policy = EpsDecay(eps_start, eps_min, eps_decay, env.action_space.n)
 playing_policy = Greedy()
-agent = Agent(model=model, buffer=buffer, learn_every=4, update_every=4, policy_learning=learning_policy,
+agent = PERAgent(model=model, buffer=buffer, learn_every=4, update_every=4, policy_learning=learning_policy,
               policy_playing=playing_policy)
 
 scores = util.learn(env, goal_size, average_goal, agent, max_step, nb_epi_max, gamma, learning_policy)
